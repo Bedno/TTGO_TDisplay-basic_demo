@@ -84,27 +84,30 @@ void setup()
 void loop()
 {
     tft.fillScreen(TFT_BLACK);  // Clear screen.
-    tft.setCursor(0, 0);
-    tft.setTextDatum(MC_DATUM);  // Centered.
     tft.setSwapBytes(true);
     tft.setRotation(1);  // 0=portrait, 1=landscape (2=180,3=270)
 
     tft.setTextSize(3);  // Big
     tft.setTextColor(TFT_GREEN);
+    tft.setTextDatum(MC_DATUM);  // Centered.
     // Sample, calibrate, and display battery voltage (or USB voltage when charging).
     Battery_Read = analogRead(BATTERY_ADC_INPUT_PIN);
     Battery_Voltage = ((float)Battery_Read / 4095.0) * 2.0 * 3.3 * (Battery_VRef / 1000.0);
     sprintf(Battery_Msg, "%1.2fv ", Battery_Voltage);
     tft.drawString(Battery_Msg, tft.width() / 2, 0 );
 
+    // Show MAC address while awaiting scan.
+    tft.setTextColor(TFT_YELLOW);
     tft.setTextSize(2); // Smaller
-    tft.setTextColor(TFT_CYAN);
     tft.setTextDatum(TL_DATUM);  // TopLeft justified.
-    tft.setCursor(0, 23);  // Location is in X,Y (0,0=L,T) pixels.
+    tft.drawString(WiFi.macAddress(), 1, 24);
 
-    // Show up to 7 nearest WiFi networks.
+    // Show nearest WiFi networks (max 7).
     WiFi_Networks = WiFi.scanNetworks();
     if (WiFi_Networks > 0) {
+      tft.fillRect(0, 24, tft.width(), 24, TFT_BLACK);  // Clear mac address display
+      tft.setCursor(0, 23);  // Location (for start of println) in pixels X,Y (0,0=L,T).
+      tft.setTextColor(TFT_CYAN);
       for (WiFi_Network = 0; (WiFi_Network < WiFi_Networks) & (WiFi_Network < 8); WiFi_Network++) {
         sprintf(WiFi_Msg, "%s(%d)", WiFi.SSID(WiFi_Network).c_str(), WiFi.RSSI(WiFi_Network));
         WiFi_Msg[20] = 0;  // truncate
