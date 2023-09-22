@@ -1,11 +1,9 @@
 // Basic demo of TTGO "T-Display" ESP32 module with 1.14" color screen features.
 // Andrew Bedno - AndrewBedno.com
 // Demonstrates screen use, WiFi scan, battery level read, button access, nonvolatile memory, and power control.
-// Compile options: Board: ESP32 Dev Module.
-// Recreates the module's "Factory Test" app but prettier, simpler, fully commented and minimum dependencies.
-
-uint32_t CPU_MHz = 80;  // Configured clock speed.  240 max, divide to reduce power use.
-uint32_t APB_Freq = 80000000;  // Timer clock speed.  Usually 80MHz but read from system in setup to confirm.
+// Recreates and improves on the module's "Factory Test" app. But cleaner code, prettier, simpler, fully commented and minimum dependencies.
+// Press top RESET button to power on/off. Shows battery voltage and Mac address, then a scan of nearest WiFi networks. Press either button to refresh.
+// Compile options: Board: ESP32 Dev Module.  Speed: 80MHz
 
 // Display library.
 // REQUIRES custom install (in IDE library manager) from TTGO git zip (rather than Arduino stock) ...
@@ -47,8 +45,6 @@ char WiFi_Msg[800];
 
 void setup()
 {
-    // Highest frequency set in var defs.  Overkill and not actually used, but habit.
-    setCpuFrequencyMhz(CPU_MHz);  CPU_MHz = getCpuFrequencyMhz();  APB_Freq = getApbFrequency();
 
     // Setup battery voltage input.
     pinMode(BATTERY_ADC_ENABLE_PIN, OUTPUT);
@@ -59,13 +55,21 @@ void setup()
     pinMode(BUTTON_2_PIN, INPUT_PULLUP);
 
     // Alternating non-volatile flag implements use of reset button for power off/on.
-    Memory.begin("cyfi", false);
+    Memory.begin("ttgodemo", false);
     Sleep_Flag = Memory.getBool("sleep", false);
     if (Sleep_Flag) {
       Memory.putBool("sleep", false);
       delay(200);  // Tiny delay assures flash write finishes.
-      esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
-      esp_sleep_enable_ext0_wakeup(BUTTON_1_PIN, 0);  // Enable wakeup on press of right button (or top reset button)
+      // Turn off screen.
+	    tft.fillScreen(TFT_BLACK);
+      tft.setTextColor(TFT_GREEN, TFT_BLACK);
+      tft.writecommand(TFT_DISPOFF);
+      tft.writecommand(TFT_SLPIN);
+      digitalWrite(TFT_BL, 0);
+      delay(200);  // Tiny delay to let screen finish.
+      // Turn off rtos wakes.
+	    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
+      // esp_sleep_enable_ext0_wakeup(BUTTON_1_PIN, 0);  // Enable wakeup on press of right button
       delay(200);  // Tiny delay for RTOS settling.
       esp_deep_sleep_start();  // Halts.
     } else {
@@ -73,6 +77,11 @@ void setup()
     }
     
     tft.init();  // Initialize screen.
+    // Set backlight brightness (uses PWM of LED) to reduce power use.
+    pinMode(TFT_BL, OUTPUT);
+    ledcSetup(0, 5000, 8); // 0-15, 5000, 8
+    ledcAttachPin(TFT_BL, 0); // TFT_BL, 0-15
+    ledcWrite(0, 69);  // 0-15, 0-255 : 0=none/dark, 69=normal, 255=brightest/very high battery drain
     
     // Calibrate the battery level sense.
     esp_adc_cal_characteristics_t adc_chars;
@@ -84,7 +93,6 @@ void setup()
 void loop()
 {
     tft.fillScreen(TFT_BLACK);  // Clear screen.
-    tft.setSwapBytes(true);
     tft.setRotation(1);  // 0=portrait, 1=landscape (2=180,3=270)
 
     tft.setTextSize(3);  // Big
@@ -94,23 +102,28 @@ void loop()
     Battery_Read = analogRead(BATTERY_ADC_INPUT_PIN);
     Battery_Voltage = ((float)Battery_Read / 4095.0) * 2.0 * 3.3 * (Battery_VRef / 1000.0);
     sprintf(Battery_Msg, "%1.2fv ", Battery_Voltage);
-    tft.drawString(Battery_Msg, tft.width() / 2, 0 );
+    tft.drawString(Battery_Msg, 120, 0 );
 
     // Show MAC address while awaiting scan.
     tft.setTextColor(TFT_YELLOW);
     tft.setTextSize(2); // Smaller
     tft.setTextDatum(TL_DATUM);  // TopLeft justified.
-    tft.drawString(WiFi.macAddress(), 1, 24);
+    tft.drawString(WiFi.macAddress(), 4, 30);
 
-    // Show nearest WiFi networks (max 7).
+    // Show nearest WiFi networks.
     WiFi_Networks = WiFi.scanNetworks();
     if (WiFi_Networks > 0) {
-      tft.fillRect(0, 24, tft.width(), 24, TFT_BLACK);  // Clear mac address display
-      tft.setCursor(0, 23);  // Location (for start of println) in pixels X,Y (0,0=L,T).
-      tft.setTextColor(TFT_CYAN);
-      for (WiFi_Network = 0; (WiFi_Network < WiFi_Networks) & (WiFi_Network < 8); WiFi_Network++) {
-        sprintf(WiFi_Msg, "%s(%d)", WiFi.SSID(WiFi_Network).c_str(), WiFi.RSSI(WiFi_Network));
-        WiFi_Msg[20] = 0;  // truncate
+	    tft.fillScreen(TFT_BLACK);  // Clear
+      tft.setCursor(0, 0);  // Location (for start of println) in pixels X,Y (0,0=L,T).
+      for (WiFi_Network = 0; (WiFi_Network < WiFi_Networks) & (WiFi_Network < 10); WiFi_Network++) {
+        sprintf(WiFi_Msg, "%02d", abs( WiFi.RSSI(WiFi_Network)));  // inverse Signal strength.
+        tft.setTextColor(TFT_LIGHTGREY);
+        tft.setTextSize(1); // Tiny
+        tft.print(WiFi_Msg);        
+        sprintf(WiFi_Msg, "%s", WiFi.SSID(WiFi_Network).c_str());  // LAN name
+        WiFi_Msg[18] = 0;  // truncate
+        tft.setTextColor(TFT_CYAN);
+        tft.setTextSize(2); // Small
         tft.println(WiFi_Msg);
       }
     }
