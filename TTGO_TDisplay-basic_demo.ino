@@ -61,14 +61,14 @@ void setup()
       Memory.putBool("sleep", false);
       delay(200);  // Tiny delay assures flash write finishes.
       // Turn off screen.
-	    tft.fillScreen(TFT_BLACK);
+      tft.fillScreen(TFT_BLACK);
       tft.setTextColor(TFT_GREEN, TFT_BLACK);
       tft.writecommand(TFT_DISPOFF);
       tft.writecommand(TFT_SLPIN);
       digitalWrite(TFT_BL, 0);
       delay(200);  // Tiny delay to let screen finish.
       // Turn off rtos wakes.
-	    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
+      esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
       // esp_sleep_enable_ext0_wakeup(BUTTON_1_PIN, 0);  // Enable wakeup on press of right button
       delay(200);  // Tiny delay for RTOS settling.
       esp_deep_sleep_start();  // Halts.
@@ -113,7 +113,7 @@ void loop()
     // Show nearest WiFi networks.
     WiFi_Networks = WiFi.scanNetworks();
     if (WiFi_Networks > 0) {
-	    tft.fillScreen(TFT_BLACK);  // Clear
+      tft.fillScreen(TFT_BLACK);  // Clear
       tft.setCursor(0, 0);  // Location (for start of println) in pixels X,Y (0,0=L,T).
       for (WiFi_Network = 0; (WiFi_Network < WiFi_Networks) & (WiFi_Network < 10); WiFi_Network++) {
         sprintf(WiFi_Msg, "%02d", abs( WiFi.RSSI(WiFi_Network)));  // inverse Signal strength.
